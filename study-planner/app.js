@@ -228,28 +228,47 @@ function hasFired(key) {
 }
 
 function showModal(icon, title, body) {
+  // 弹窗互斥:同一时刻只弹一个。已经弹着时不替换、不响铃,
+  // 调用方会等下一次检查再试,避免连环弹窗轰炸。
+  const modal = document.getElementById('modal');
+  if (!modal.classList.contains('hidden')) return false;
   document.getElementById('modalIcon').textContent = icon;
   document.getElementById('modalTitle').textContent = title;
   document.getElementById('modalBody').textContent = body;
-  document.getElementById('modal').classList.remove('hidden');
+  modal.classList.remove('hidden');
   beep();
+  return true;
 }
 document.getElementById('modalClose').addEventListener('click', () => {
   document.getElementById('modal').classList.add('hidden');
 });
 
+// 音频:全局只建一个 AudioContext,并在用户第一次触屏时"解锁"(iOS 规定网页
+// 必须先有用户交互才允许发声,否则计时器触发的提示音会被静音)
+let audioCtx = null;
+function unlockAudio() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch {}
+}
+document.addEventListener('touchstart', unlockAudio, { passive: true });
+document.addEventListener('click', unlockAudio, { passive: true });
+
 function beep() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    [0, 0.28, 0.56].forEach(delay => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
+    unlockAudio();
+    if (!audioCtx || audioCtx.state !== 'running') return;
+    [0, 0.3, 0.6].forEach(delay => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
       o.frequency.value = 880; o.type = 'sine';
-      g.gain.setValueAtTime(0.15, ctx.currentTime + delay);
-      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.22);
-      o.connect(g).connect(ctx.destination);
-      o.start(ctx.currentTime + delay); o.stop(ctx.currentTime + delay + 0.25);
+      g.gain.setValueAtTime(0.2, audioCtx.currentTime + delay);
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + 0.25);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(audioCtx.currentTime + delay); o.stop(audioCtx.currentTime + delay + 0.28);
     });
   } catch {}
+  if (navigator.vibrate) { try { navigator.vibrate([200, 100, 200]); } catch {} }
 }
 
 function systemNotify(title, body) {
@@ -259,9 +278,10 @@ function systemNotify(title, body) {
 }
 
 // 只提醒"刚刚到点"的事件:到点 90 秒内才算有效提醒。
-// 超过 90 秒才被检查到的(比如补排的过去时间块、长时间没开 App)一律静默跳过,
-// 避免一设好就弹"时间到了"。
+// 超过 90 秒才被检查到的(比如锁屏积压、补排的过去时间块)一律静默跳过。
+// shownInSession:本会话已弹过的事件绝不弹第二次,即使页面数据异常也不会重复轰炸。
 const GRACE_MS = 90 * 1000;
+const shownInSession = new Set();
 
 function checkReminders() {
   // 跨过凌晨 4 点:清空全部数据(计划 + 提醒记录),开始新的一天
@@ -271,36 +291,38 @@ function checkReminders() {
     resetAllData();
   }
 
-  const now = new Date();
-  const nowTs = now.getTime();
+  const nowTs = Date.now();
   for (const b of blocks) {
     const s = new Date(); s.setHours(...b.start.split(':').map(Number), 0, 0);
     const startTs = s.getTime();
     const endTs = startTs + b.dur * 60000;
     const isStudy = b.type === 'study';
     const name = b.label || (isStudy ? '学习时间' : '休息时间');
+    const durText = settings.unit === 'hour' ? fmtDur(b.dur) : b.dur + ' 分钟';
 
     const startKey = b.id + '|start';
-    if (nowTs >= startTs && !hasFired(startKey)) {
+    if (nowTs >= startTs && !hasFired(startKey) && !shownInSession.has(startKey)) {
       if (nowTs - startTs <= GRACE_MS) {
-        const durText = settings.unit === 'hour' ? fmtDur(b.dur) : b.dur + ' 分钟';
         const title = isStudy ? '📚 该学习了!' : '☕ 该休息了!';
         const body = isStudy
           ? `${name} ${b.start} 开始,计划学 ${durText},加油!`
           : `休息 ${durText},起来活动一下吧~`;
-        showModal(isStudy ? '📚' : '☕', title, body);
-        systemNotify(title, body);
+        const ok = showModal(isStudy ? '📚' : '☕', title, body);
+        if (ok) { shownInSession.add(startKey); markFired(startKey); systemNotify(title, body); }
+        // 弹窗被占用:不标记,等下一轮再试(宽限期内会自动重试)
+      } else {
+        markFired(startKey); // 已过宽限期,静默跳过
       }
-      markFired(startKey);
     }
 
     const endKey = b.id + '|end';
-    if (nowTs >= endTs && !hasFired(endKey)) {
+    if (nowTs >= endTs && !hasFired(endKey) && !shownInSession.has(endKey)) {
       if (isStudy && nowTs - endTs <= GRACE_MS) {
-        showModal('🎉', '学习时间结束!', `${name}结束啦,休息一下吧~`);
-        systemNotify('🎉 学习时间结束', '休息一下吧~');
+        const ok = showModal('🎉', '学习时间结束!', `${name}结束啦,休息一下吧~`);
+        if (ok) { shownInSession.add(endKey); markFired(endKey); systemNotify('🎉 学习时间结束', '休息一下吧~'); }
+      } else {
+        markFired(endKey);
       }
-      markFired(endKey);
     }
   }
 }
@@ -357,5 +379,15 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 
 render();
 checkReminders();
-setInterval(checkReminders, 20000);   // 每 20 秒检查一次到点
+setInterval(checkReminders, 5000);    // 每 5 秒检查一次到点,提醒误差不超过 5 秒
 setInterval(render, 60000);           // 每分钟刷新"现在"高亮
+
+// iOS 锁屏/切后台时会冻结网页计时器;回到 App 的瞬间立即补一次检查,
+// 避免积压的提醒在解锁后才慢吞吞地陆续弹出
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    unlockAudio();
+    checkReminders();
+    render();
+  }
+});

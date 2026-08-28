@@ -1,5 +1,5 @@
 /* 离线缓存:装到主屏幕后没网也能打开 */
-const CACHE = 'study-plan-v2';
+const CACHE = 'study-plan-v3';
 const ASSETS = [
   './',
   './index.html',
