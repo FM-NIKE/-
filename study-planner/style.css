@@ -22,8 +22,14 @@ body {
   margin: 0 auto;
 }
 
+header .header-top { display: flex; justify-content: space-between; align-items: center; }
 header h1 { font-size: 24px; }
 header .date { color: var(--muted); font-size: 14px; margin: 4px 0 14px; }
+
+button.gear {
+  background: none; border: none; font-size: 22px;
+  cursor: pointer; padding: 6px; line-height: 1;
+}
 
 .summary { display: flex; gap: 10px; }
 .sum-card {
@@ -38,6 +44,7 @@ header .date { color: var(--muted); font-size: 14px; margin: 4px 0 14px; }
   gap: 2px;
 }
 .sum-num { font-size: 22px; font-weight: 700; color: var(--primary); }
+.sum-num.small { font-size: 16px; }
 .sum-card:nth-child(2) .sum-num { color: var(--rest); }
 .sum-label { font-size: 11px; color: var(--muted); }
 
@@ -143,3 +150,6 @@ button:active { opacity: 0.75; }
 .modal-icon { font-size: 44px; }
 .modal-title { font-size: 20px; font-weight: 700; }
 .modal-body { font-size: 14px; color: var(--muted); line-height: 1.5; }
+
+.setting-item { display: flex; flex-direction: column; gap: 8px; }
+.setting-label { font-size: 13px; color: var(--muted); }
