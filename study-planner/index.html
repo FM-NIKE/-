@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="学习计划">
+  <meta name="theme-color" content="#5b6cff">
+  <title>学习计划</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>今日学习计划</h1>
+    <div class="date" id="todayDate"></div>
+    <div class="summary">
+      <div class="sum-card">
+        <span class="sum-num" id="totalStudy">0</span>
+        <span class="sum-label">规划学习(分钟)</span>
+      </div>
+      <div class="sum-card">
+        <span class="sum-num" id="totalRest">0</span>
+        <span class="sum-label">休息(分钟)</span>
+      </div>
+      <div class="sum-card">
+        <span class="sum-num" id="blockCount">0</span>
+        <span class="sum-label">时间块</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="timeline"></section>
+    <div id="emptyHint" class="empty hidden">还没有安排,从下面添加第一个时间块吧 👇</div>
+  </main>
+
+  <section class="add-form">
+    <h2>添加时间块</h2>
+    <div class="row">
+      <div class="seg" id="typeSeg">
+        <button class="seg-btn active" data-type="study">📚 学习</button>
+        <button class="seg-btn" data-type="rest">☕ 休息</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>开始
+        <input type="time" id="startTime" value="09:00">
+      </label>
+      <label>时长(分钟)
+        <input type="number" id="duration" value="60" min="1" max="720">
+      </label>
+    </div>
+    <div class="row chips">
+      <button class="chip" data-min="20">20</button>
+      <button class="chip" data-min="30">30</button>
+      <button class="chip" data-min="45">45</button>
+      <button class="chip" data-min="60">60</button>
+      <button class="chip" data-min="90">90</button>
+    </div>
+    <div class="row">
+      <input type="text" id="label" placeholder="学什么?(可选,如:数学)">
+    </div>
+    <div class="row">
+      <button class="ghost" id="chainBtn" title="把开始时间设为上一块的结束时间">↳ 接着上一块</button>
+      <button class="primary" id="addBtn">＋ 添加</button>
+    </div>
+  </section>
+
+  <section class="settings">
+    <button class="ghost" id="notifyBtn">🔔 开启提醒</button>
+    <button class="ghost danger" id="clearBtn">清空全部</button>
+  </section>
+
+  <!-- 到点提醒弹窗 -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-icon" id="modalIcon">📚</div>
+      <div class="modal-title" id="modalTitle">该学习了</div>
+      <div class="modal-body" id="modalBody"></div>
+      <button class="primary" id="modalClose">知道了</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
